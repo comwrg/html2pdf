@@ -18,23 +18,23 @@ namespace Html2Pdf.Core
         }
 
         public static string Run(string pdfPath, string htmlFullPath, int pdfFontSize) {
-            var htmlTemp = Path.Combine(new DirectoryInfo(htmlFullPath).Parent.FullName,
-                    Guid.NewGuid().ToString() + ".html");  
-            File.Copy(htmlFullPath,htmlTemp);
-            var pdfUrl = pdfPath;
+            //var htmlTemp = Path.Combine(new DirectoryInfo(htmlFullPath).Parent.FullName,
+            //        Guid.NewGuid().ToString() + ".html");
+            //File.Copy(htmlFullPath, htmlTemp);
+            //var pdfUrl = pdfPath;
+
+            // IHtmlToPdfConverter converter = new WkHtmlToPdfConverter();
+            IHtmlToPdfConverter converter = new MultiplexingConverter();
             try
             {
                 #region USING WkHtmlToXSharp.dll
-
-                // IHtmlToPdfConverter converter = new WkHtmlToPdfConverter();
-                IHtmlToPdfConverter converter = new MultiplexingConverter();
 
                 converter.GlobalSettings.Margin.Top = "0cm";
                 converter.GlobalSettings.Margin.Bottom = "0cm";
                 converter.GlobalSettings.Margin.Left = "0cm";
                 converter.GlobalSettings.Margin.Right = "0cm";
 
-                converter.ObjectSettings.Page = htmlTemp;
+                converter.ObjectSettings.Page = htmlFullPath;
                 converter.ObjectSettings.Web.EnablePlugins = true;
                 converter.ObjectSettings.Web.EnableJavascript = true;
                 converter.ObjectSettings.Web.Background = true;
@@ -42,17 +42,23 @@ namespace Html2Pdf.Core
                 converter.ObjectSettings.Load.LoadErrorHandling = LoadErrorHandlingType.abort;
                 converter.ObjectSettings.Web.MinimumFontSize = pdfFontSize;
                 Byte[] bufferPDF = converter.Convert();
-                System.IO.File.WriteAllBytes(pdfUrl, bufferPDF);
-                converter.Dispose();
+                System.IO.File.WriteAllBytes(pdfPath, bufferPDF);
+                
 
                 #endregion
             }
-            catch (Exception ex) {
-                File.Delete(htmlTemp);
+            catch (Exception ex)
+            {
+                
                 logger.Error(ex);
                 return "error." + ex.Message;
             }
-            File.Delete(htmlTemp);
+            finally
+            {
+                //File.Delete(htmlTemp);
+                converter.Dispose();
+            }
+            
             return "ok";
         }
 

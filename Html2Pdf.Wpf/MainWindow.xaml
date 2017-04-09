@@ -37,8 +37,7 @@
             </Grid.ColumnDefinitions>
             <TextBlock Text=" PDF文件保存位置：" VerticalAlignment="Center" />
             <TextBox Name="TxtPdfSaveFolder" Grid.Column="1" IsReadOnly="True" />
-            <Button Name="BtnPdfSaveFolder" Grid.Column="2"  Content="浏览"
-                    Click="BtnPdfSaveFolder_OnClick" />
+            <Button Name="BtnPdfSaveFolder" Grid.Column="2"  Content="浏览" IsEnabled="False"/>
             <TextBlock Text="PDF字体大小："  Grid.Column="4" VerticalAlignment="Center" />
             <TextBox Name="TxtPdfFontSize" Grid.Column="5"   Text="14"/>
         </Grid>

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Net.Mime;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -35,7 +36,7 @@ namespace Html2Pdf.Wpf
         public List<TreeModel> TreeModelChecked { get; set; }
 
         public string PdfBaseFolder { get; set; }
-        public string PdfFolderTemp { get; set; }
+        public string PdfFolderTemp { get; set; } = string.Empty;
         public string PdfFileName { get; set; }
         public int PdfFontSize { get; set; }
         public string HtmlBaseFolder { get; set; } 
@@ -194,25 +195,6 @@ namespace Html2Pdf.Wpf
         #endregion
 
 
-        private void BtnPdfSaveFolder_OnClick(object sender, RoutedEventArgs e)
-        { 
-            var dialog = new SaveFileDialog();
-            dialog.CheckPathExists = true;
-           
-            dialog.CreatePrompt = true;
-            dialog.OverwritePrompt = true;
-            dialog.DefaultExt = "pdf";
-            dialog.Filter = "pdf file(*.pdf)|*.pdf";
-         
-            var result = dialog.ShowDialog();
-            if (result.Value) {
-                var file = dialog.FileName;
-                TxtPdfSaveFolder.Text =file ;
-                PdfBaseFolder = new DirectoryInfo(dialog.FileName).Parent.FullName;
-                PdfFileName = new FileInfo(file).Name.Replace(".pdf","");
-            }
-        }
-
         private  void BtnConvert_OnClick(object sender, RoutedEventArgs e)
         {
             var strFontSize = TxtPdfFontSize.Text;
@@ -227,11 +209,11 @@ namespace Html2Pdf.Wpf
                 return;
             }
             var strPath = TxtPdfSaveFolder.Text;
-            if (string.IsNullOrEmpty(strPath)) {
-                this.ShowMessageAsync("提示", "请选择PDF文件保存位置"); 
-                return;
-            }
-            PdfBaseFolder = new DirectoryInfo(strPath).Parent.FullName;
+            //if (string.IsNullOrEmpty(strPath)) {
+            //    this.ShowMessageAsync("提示", "请选择PDF文件保存位置"); 
+            //    return;
+            //}
+            PdfBaseFolder = new DirectoryInfo(TxtHtmlFilesFolder.Text).Parent.FullName;
             var dialog = new Ookii.Dialogs.Wpf.ProgressDialog(); 
             var tabIndex = MyTabs.SelectedIndex;
             if (tabIndex == 1) {//scrapbook
@@ -261,9 +243,10 @@ namespace Html2Pdf.Wpf
                 dialog.DoWork += DoHtmlConvert;
             }
             PdfFolderTemp = Path.Combine(PdfBaseFolder, Guid.NewGuid().ToString());
-            if (!Directory.Exists(PdfFolderTemp)) {
+            if (!Directory.Exists(PdfFolderTemp))
+            {
                 Directory.CreateDirectory(PdfFolderTemp);
-            } 
+            }
             dialog.ShowCancelButton = false;
             dialog.Text = "正在转换，请稍后"; 
             dialog.RunWorkerCompleted += DoConvertCompleted;
@@ -291,18 +274,76 @@ namespace Html2Pdf.Wpf
         private void DoHtmlConvert(object sender, DoWorkEventArgs e) {
 
             var dialog = (Ookii.Dialogs.Wpf.ProgressDialog)sender;
-            var i = 0;
+            //var i = 0;
             var x = HtmlFiles.Count();
+            /**
             foreach (var file in HtmlFiles) {
-                i++;
+                //i++;
                 if (File.Exists(file)) {
                     var fileName = new FileInfo(file).Name.Replace(".html","").Replace(".htm","");
-                    var pdfPath = Path.Combine(PdfFolderTemp, fileName + ".pdf");
-                    var result = Converter.Run(pdfPath, file,PdfFontSize);
-                    dialog.ReportProgress(i / x * 100, "正在转换，请稍后", result +" ... "+ fileName);
+                    fileNameList.Add(fileName);
+                    //var pdfPath = Path.Combine(PdfFolderTemp, fileName + ".pdf");
+                    //var result = Converter.Run(pdfPath, file,PdfFontSize);
+                    //dialog.ReportProgress(i / x * 100, "正在转换，请稍后", result +" ... "+ fileName);
                 }
             }
-            CombinePdfs(dialog);
+
+            **/
+
+            Task[] tasks = new Task[10];
+
+            int index = 0;
+            for (int j = 0; j < tasks.Length; j++)
+            {
+                tasks[j] = Task.Factory.StartNew(() =>
+                {
+                    while (index < HtmlFiles.Length)
+                    {
+                        string file = null;
+                        lock (HtmlFiles)
+                        {
+                            file = HtmlFiles[index];
+                            index++;
+                        }
+
+                        if (!File.Exists(file)) continue;
+                        
+                        var fileName = new FileInfo(file).Name.Replace(".html", "").Replace(".htm", "");
+                        // change filename to random alphabet
+                        fileName = RandStr(10);
+                        var pdfPath = Path.Combine(PdfFolderTemp, fileName + ".pdf");
+                        string result;
+                        do
+                        {
+                            result = Converter.Run(pdfPath, file, PdfFontSize);
+                        } while (result != "ok");
+                        Console.WriteLine(result);
+                        lock (dialog)
+                        {
+                            dialog.ReportProgress(index / x * 100, "正在转换，请稍后", result + " ... " + fileName);
+                        }
+                    }
+
+                });
+            }
+
+            Task.WaitAll(tasks);
+            //CombinePdfs(dialog);
+
+        }
+
+        public static string RandStr(int length)
+        {
+            char[] pattern = new char[] { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z' };
+            string result = "";
+            int n = pattern.Length;
+            System.Random random = new Random(~unchecked((int)DateTime.Now.Ticks));
+            for (int i = 0; i < length; i++)
+            {
+                int rnd = random.Next(0, n);
+                result += pattern[rnd];
+            }
+            return result;
         }
         private void DoScrapbookConvert(object sender, DoWorkEventArgs e)
         {    
@@ -315,7 +356,12 @@ namespace Html2Pdf.Wpf
                 if (File.Exists(htmlFilePath))
                 {
                     var pdfPath = Path.Combine(PdfFolderTemp, node.Name + ".pdf");
-                    var result = Converter.Run(pdfPath, htmlFilePath,PdfFontSize);
+                    string result;
+                    do
+                    {
+                        result = Converter.Run(pdfPath, htmlFilePath, PdfFontSize);
+                    } while (result != "ok");
+                    
                     dialog.ReportProgress(i / TreeModelChecked.Count * 100, "正在转换，请稍后", result + " ... " + node.Name);
                 }
             }

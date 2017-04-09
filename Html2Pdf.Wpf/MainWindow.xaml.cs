@@ -333,7 +333,9 @@ namespace Html2Pdf.Wpf
             if (e.Error!=null)
             {
                 logger.Error(e.Error);
-                MessageBox.Show("发生错误"+e.Error.Message); 
+                MessageBox.Show("发生错误"+e.Error.Message);
+                // fix application won't shut down when an error happened.
+                Application.Current.Shutdown();
             }
             else
             {
